@@ -569,6 +569,17 @@ def _select_targets(output: Tensor, target: TargetType) -> Tensor:
     if isinstance(target, (int, tuple)):
         return _verify_select_column(output, target)
     elif isinstance(target, torch.Tensor):
+        if dims == 3:
+            num_classes = output.shape[-1]
+            loss_fn = torch.nn.CrossEntropyLoss(reduction='none')
+            # Flatten the target to match the CrossEntropyLoss expected input
+            target_flat = target.view(-1)
+            # Compute the loss per position
+            loss_per_position = loss_fn(output.view(-1, num_classes), target_flat)
+            # Sum over the sequence for each example in the batch
+            total_loss = loss_per_position.sum().view(1)
+
+            return total_loss
         if torch.numel(target) == 1 and isinstance(target.item(), int):
             return _verify_select_column(output, cast(int, target.item()))
         elif len(target.shape) == 1 and torch.numel(target) == num_examples:
